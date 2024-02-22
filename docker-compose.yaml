@@ -1,0 +1,46 @@
+version: "3"
+
+services:
+  postgres:
+    image: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: vending_machine
+      POSTGRES_PASSWORD: password
+    networks:
+      - vending-machine-network
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  web:
+    build:
+      context: .
+    ports:
+      - "8000:8000"
+    networks:
+      - vending-machine-network
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DATABASE=vending_machine
+      - POSTGRES_USERNAME=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_PORT=5432
+    command:
+      - bash
+      - -c
+      - |
+        while !</dev/tcp/postgres/5432; do sleep 1; done;
+        bash -c "alembic upgrade head && uvicorn app:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - .:/vending-machine
+    depends_on:
+      - postgres
+    restart: always
+networks:
+  vending-machine-network:
+    name: vending-machine-network
+
